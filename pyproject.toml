@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ovos-ma-player"
+version = "0.1.0"
+description = "OpenVoiceOS OCP player provider for Music Assistant"
+requires-python = ">=3.11"
+dependencies = ["music-assistant-plugin-manager", "ovos-bus-client"]
+
+[project.entry-points."music_assistant.provider"]
+ovos_player = "ovos_ma_player"
+
+[tool.setuptools.packages.find]
+include = ["ovos_ma_player*"]
+
+[tool.setuptools.package-data]
+ovos_ma_player = ["manifest.json"]

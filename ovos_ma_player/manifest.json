@@ -1,0 +1,11 @@
+{
+  "type": "player",
+  "domain": "ovos_player",
+  "name": "OpenVoiceOS (OCP)",
+  "description": "Drive OVOS / OCP playback from Music Assistant via the local messagebus.",
+  "codeowners": ["@TigreGotico"],
+  "stage": "beta",
+  "requirements": ["ovos-bus-client"],
+  "documentation": "https://github.com/TigreGotico/ovos-ma-player",
+  "multi_instance": false
+}
