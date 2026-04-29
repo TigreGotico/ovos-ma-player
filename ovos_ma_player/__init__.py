@@ -39,6 +39,11 @@ CONF_PORT = "port"
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = 8181
 
+# OCP PlayerState IntEnum values (from ovos_utils.ocp)
+_OCP_STOPPED = 0
+_OCP_PLAYING = 1
+_OCP_PAUSED = 2
+
 
 async def setup(
     mass: MusicAssistant, manifest: ProviderManifest, config: ProviderConfig
@@ -127,13 +132,11 @@ class OVOSPlayer(Player):
         self.update_state()
 
     async def seek(self, position: int) -> None:
-        # OCP seek takes seconds as a float
         await asyncio.to_thread(self.provider.bus.emit,
                                 self.provider.Message("ovos.common_play.set_track_position",
                                                       {"position": float(position)}))
 
     async def volume_set(self, volume_level: int) -> None:
-        # OCP doesn't have a dedicated volume message — go via the system mixer
         await asyncio.to_thread(self.provider.bus.emit,
                                 self.provider.Message("mycroft.volume.set",
                                                       {"percent": volume_level / 100}))
@@ -148,20 +151,31 @@ class OVOSPlayer(Player):
         self.update_state()
 
     async def power(self, powered: bool) -> None:
-        # OVOS doesn't have a power concept; stop on "off"
         if not powered:
             await self.stop()
         self._attr_powered = powered
         self.update_state()
 
+    def _make_media_entry(self, url: str, media: PlayerMedia):
+        """Build an OCP MediaEntry for the given URL + MA PlayerMedia."""
+        from ovos_utils.ocp import MediaEntry, MediaType, PlaybackType, TrackState  # noqa: PLC0415
+        return MediaEntry(
+            uri=url,
+            title=getattr(media, "title", None) or url,
+            artist=getattr(media, "artist_name", None) or "",
+            length=int(getattr(media, "duration", None) or 0),
+            match_confidence=100,
+            skill_id="music_assistant",
+            status=TrackState.QUEUED_AUDIO,
+            media_type=MediaType.MUSIC,
+            playback=PlaybackType.AUDIO,
+            image=getattr(media, "image_url", None) or "",
+        )
+
     async def play_media(self, media: PlayerMedia) -> None:
         url = await self.provider.mass.streams.resolve_stream_url(self.player_id, media)
-        msg = self.provider.Message("ovos.common_play.play", {
-            "tracks": [{"uri": url,
-                        "title": getattr(media, "title", None) or url,
-                        "artist": getattr(media, "artist_name", None) or "",
-                        "image": getattr(media, "image_url", None) or ""}],
-        })
+        entry = await asyncio.to_thread(self._make_media_entry, url, media)
+        msg = self.provider.Message("ovos.common_play.play", {"media": entry.as_dict})
         await asyncio.to_thread(self.provider.bus.emit, msg)
         self._attr_current_media = media
         self._attr_playback_state = PlaybackState.PLAYING
@@ -171,39 +185,34 @@ class OVOSPlayer(Player):
         self, announcement: PlayerMedia, volume_level: int | None = None
     ) -> None:
         url = await self.provider.mass.streams.resolve_stream_url(self.player_id, announcement)
-        msg = self.provider.Message("ovos.common_play.play", {
-            "tracks": [{"uri": url,
-                        "title": getattr(announcement, "title", None) or "Announcement",
-                        "artist": "",
-                        "image": ""}],
-        })
+        entry = await asyncio.to_thread(self._make_media_entry, url, announcement)
+        msg = self.provider.Message("ovos.common_play.play", {"media": entry.as_dict})
         await asyncio.to_thread(self.provider.bus.emit, msg)
 
     async def poll(self) -> None:
         """Ask OCP for current playback state."""
         def _ask():
-            resp = self.provider.bus.wait_for_response(
+            return self.provider.bus.wait_for_response(
                 self.provider.Message("ovos.common_play.status"),
                 reply_type="ovos.common_play.status.response",
                 timeout=2.0,
             )
-            return resp
 
         resp = await asyncio.to_thread(_ask)
         if resp:
-            state = resp.data.get("state")  # "playing" / "paused" / "stopped"
-            if state == "playing":
+            # state is PlayerState IntEnum: STOPPED=0, PLAYING=1, PAUSED=2
+            raw_state = resp.data.get("state")
+            if raw_state == _OCP_PLAYING:
                 self._attr_playback_state = PlaybackState.PLAYING
-            elif state == "paused":
+            elif raw_state == _OCP_PAUSED:
                 self._attr_playback_state = PlaybackState.PAUSED
-            else:
+            elif raw_state == _OCP_STOPPED:
                 self._attr_playback_state = PlaybackState.IDLE
-            pos = resp.data.get("position")
-            if pos is not None:
-                self._attr_elapsed_time = int(pos)
-            volume = resp.data.get("volume")
-            if volume is not None:
-                self._attr_volume_level = int(volume * 100)
+            media = resp.data.get("media")
+            if media and isinstance(media, dict):
+                pos = media.get("position")
+                if pos is not None:
+                    self._attr_elapsed_time = int(pos)
         self.update_state()
 
     async def on_unload(self) -> None:
@@ -217,7 +226,6 @@ class OVOSPlayer(Player):
 class OVOSPlayerProvider(PlayerProvider):
     """Player provider that drives OVOS / OCP via the local messagebus."""
 
-    # Imported lazily in handle_async_init
     Message = None
 
     async def handle_async_init(self) -> None:
@@ -234,8 +242,6 @@ class OVOSPlayerProvider(PlayerProvider):
 
         self.bus = self._MessageBusClient(host=host, port=port,
                                           route="/core", ssl=False)
-        # Run the websocket loop in a daemon thread — MA is async, the bus
-        # client is synchronous websocket-based.
         t = threading.Thread(target=self.bus.run_forever, daemon=True)
         t.start()
         self.bus.connected_event.wait(timeout=10)
@@ -246,27 +252,29 @@ class OVOSPlayerProvider(PlayerProvider):
 
         self.logger.info("Connected to OVOS messagebus at %s:%s", host, port)
 
-        # Subscribe to OCP state change events so MA stays in sync without polling
-        self.bus.on("ovos.common_play.track.state", self._on_track_state)
+        # ovos.common_play.player.state carries PlayerState (STOPPED/PLAYING/PAUSED)
+        self.bus.on("ovos.common_play.player.state", self._on_player_state)
         self.bus.on("ovos.common_play.media.state", self._on_media_state)
 
-    def _on_track_state(self, message) -> None:
-        """OCP reports a new player/track state."""
-        state = message.data.get("state")
+    def _on_player_state(self, message) -> None:
+        """OCP high-level player state changed."""
+        raw_state = message.data.get("state")
         for player in self.players:
-            if state == "playing":
+            if raw_state == _OCP_PLAYING:
                 player._attr_playback_state = PlaybackState.PLAYING
-            elif state == "paused":
+            elif raw_state == _OCP_PAUSED:
                 player._attr_playback_state = PlaybackState.PAUSED
-            elif state in ("stopped", "end"):
+            elif raw_state == _OCP_STOPPED:
                 player._attr_playback_state = PlaybackState.IDLE
                 player._attr_current_media = None
             player.update_state()
 
     def _on_media_state(self, message) -> None:
-        """OCP finished the current media item."""
+        """OCP media pipeline finished or errored."""
+        from ovos_utils.ocp import MediaState  # noqa: PLC0415
         state = message.data.get("state")
-        if state in ("end", "error"):
+        # MediaState.END=6, MediaState.ERROR=7
+        if state in (MediaState.END, MediaState.ERROR, 6, 7):
             for player in self.players:
                 player._attr_playback_state = PlaybackState.IDLE
                 player._attr_current_media = None
