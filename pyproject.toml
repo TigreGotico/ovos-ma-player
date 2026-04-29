@@ -17,3 +17,10 @@ include = ["ovos_ma_player*"]
 
 [tool.setuptools.package-data]
 ovos_ma_player = ["manifest.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "strict"
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-asyncio", "ovos-pydantic-models"]
