@@ -22,9 +22,9 @@ Every OVOS bus message is a JSON object with three fields:
 }
 ```
 
-- `type` — the message type string; the routing key.
-- `data` — message-specific payload dict. May be empty (`{}`).
-- `context` — routing metadata (skill ID, session, etc.). This plugin never sets context fields.
+- `type`: the message type string; the routing key.
+- `data`: message-specific payload dict. May be empty (`{}`).
+- `context`: routing metadata (skill ID, session, etc.). This plugin never sets context fields.
 
 In code, messages are created as `Message(msg_type, data_dict)` from `ovos_bus_client`.
 
@@ -82,7 +82,7 @@ exact string values depend on `ovos_pydantic_models` version. `length` is in **m
   stream URL uses an externally reachable address.
 - `length` is in milliseconds. If you send seconds by mistake, OCP will show wrong seek range
   and may stop playback prematurely (1000x too early).
-- `playlist` containing the same entry as `media` is intentional — OCP uses the playlist for
+- `playlist` containing the same entry as `media` is intentional: OCP uses the playlist for
   queue display.
 
 All line numbers refer to `ovos_ma_player/__init__.py`.
@@ -248,7 +248,7 @@ warning and returns without updating state.
 
 Validated using `OvosCommonPlayMediaStateData` from `ovos_pydantic_models.audio.ocp`. The
 handler only acts when `state` is `OcpMediaState.END_OF_MEDIA` or
-`OcpMediaState.INVALID_MEDIA` — both reset the player to IDLE and clear `current_media`.
+`OcpMediaState.INVALID_MEDIA`: both reset the player to IDLE and clear `current_media`.
 
 **Why not `ovos.common_play.track.state`?** Per-track pipeline events are more granular than
 needed. `media.state` provides the reliable "pipeline is done" signal.
@@ -288,9 +288,9 @@ playing.
 All incoming payloads are validated by pydantic models from `ovos_pydantic_models` (imported
 lazily inside each helper function). If validation fails:
 
-- `_parse_player_state` returns `None` — the handler skips the update.
-- `_parse_media_state_end` returns `False` — the handler takes no action.
-- `_parse_status_response` returns `(None, None)` — no state or position update.
+- `_parse_player_state` returns `None`: the handler skips the update.
+- `_parse_media_state_end` returns `False`: the handler takes no action.
+- `_parse_status_response` returns `(None, None)`: no state or position update.
 
 A `WARNING` log is emitted in each case with the validation exception. This means a malformed
 OCP message causes a log warning rather than an exception or silent data corruption.
@@ -332,7 +332,7 @@ The plugin always uses `PlaybackType.AUDIO`.
 
 ## MediaEntry serialization summary
 
-`_make_ocp_media_entry(url, media)` — `ovos_ma_player/__init__.py:82`
+`_make_ocp_media_entry(url, media)`: `ovos_ma_player/__init__.py:82`
 
 | Field | Value | Notes |
 |---|---|---|
@@ -374,3 +374,6 @@ The plugin always uses `PlaybackType.AUDIO`.
    This package is a transitive dependency (via `ovos-bus-client` or related packages) but is
    not declared as a direct dependency. If it is absent, the lazy imports inside the helper
    functions will fail at runtime with an `ImportError`.
+
+---
+[← Plugin Authors Guide](plugin-authors.md) · [Home](../README.md) · [Deployment Guide →](deployment.md)

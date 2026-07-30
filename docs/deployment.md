@@ -1,4 +1,4 @@
-# Deployment Guide — ovos-ma-player
+# Deployment Guide: ovos-ma-player
 
 This guide covers running `ovos-ma-player` in production environments. It assumes Music
 Assistant is already installed and running. For MA installation, see the
@@ -162,8 +162,8 @@ Replace `MA_HOST_IP` with the actual IP of the machine running MA.
 
 | Connection | Protocol | Port | Direction | Auth |
 |---|---|---|---|---|
-| MA -> OVOS messagebus | WebSocket (`ws://`) | 8181 | MA initiates | None |
-| OVOS -> MA streams | HTTP | MA stream port (default 8095) | OVOS initiates when playing | None (internal) |
+| MA -> OVOS messagebus | WebSocket (`ws://`) | 8181 | MA opens the connection | None |
+| OVOS -> MA streams | HTTP | MA stream port (default 8095) | OVOS opens the connection when playing | None (internal) |
 
 The MA stream port must be reachable from OVOS when they are on different machines. Configure
 MA's network settings to use an externally reachable address for stream URLs.
@@ -225,3 +225,6 @@ journalctl -u music-assistant -f | grep ovos_ma_player
 # Docker
 docker logs -f music-assistant | grep ovos_ma_player
 ```
+
+---
+[← OCP Protocol Reference](ocp-protocol.md) · [Home](../README.md)

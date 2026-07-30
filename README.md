@@ -14,7 +14,7 @@ OVOS handles the actual audio pipeline; state changes are pushed back to MA via
 > If you already know what Music Assistant is, skip this section.
 
 [Music Assistant](https://music-assistant.io) (MA) is a self-hosted media server that aggregates
-music from many sources — Spotify, YouTube Music, local files, and more — and streams it to
+music from many sources (Spotify, YouTube Music, local files, and more) and streams it to
 players around your home. It runs as a server process (standalone or inside a Home Assistant
 add-on) and exposes a web UI plus a WebSocket API. "Player providers" are plugins that teach MA
 how to send audio to a specific type of playback device. This package is one such plugin.
@@ -23,7 +23,7 @@ how to send audio to a specific type of playback device. This package is one suc
 
 > If you already know OVOS and OCP, skip this section.
 
-[OpenVoiceOS](https://openvoiceos.org) (OVOS) is an open-source voice assistant platform — a
+[OpenVoiceOS](https://openvoiceos.org) (OVOS) is an open-source voice assistant platform: a
 community fork and evolution of the original Mycroft AI assistant. It runs on Linux (commonly on
 a Raspberry Pi) and listens for a wake word, then processes spoken commands through a pipeline of
 skills. All internal communication happens over a local WebSocket called the **messagebus**
@@ -261,13 +261,13 @@ thread pool via `asyncio.to_thread` to avoid blocking the loop.
 
 | MA action | OCP message emitted | Payload |
 |---|---|---|
-| Play (resume) | `ovos.common_play.resume` | — |
-| Pause | `ovos.common_play.pause` | — |
-| Stop | `ovos.common_play.stop` | — |
+| Play (resume) | `ovos.common_play.resume` | none |
+| Pause | `ovos.common_play.pause` | none |
+| Stop | `ovos.common_play.stop` | none |
 | Seek | `ovos.common_play.set_track_position` | `{"position": <float seconds>}` |
 | Volume | `mycroft.volume.set` | `{"percent": <0.0-1.0>}` |
-| Mute | `mycroft.volume.mute` | — |
-| Unmute | `mycroft.volume.unmute` | — |
+| Mute | `mycroft.volume.mute` | none |
+| Unmute | `mycroft.volume.unmute` | none |
 | Play media | `ovos.common_play.play` | `{"media": <MediaEntry dict>}` |
 | Announcement | `ovos.common_play.play` | `{"media": <MediaEntry dict>}` |
 
@@ -280,9 +280,9 @@ For `play_media` and `play_announcement`, MA first resolves the stream URL via
 State is kept in sync via two complementary mechanisms:
 
 **Push (event-driven):** The provider subscribes to:
-- `ovos.common_play.player.state` — carries a `state` integer (`0`=stopped, `1`=playing,
+- `ovos.common_play.player.state`: carries a `state` integer (`0`=stopped, `1`=playing,
   `2`=paused). Updates all registered players immediately.
-- `ovos.common_play.media.state` — when `state` is `6` (END) or `7` (ERROR), clears
+- `ovos.common_play.media.state`: when `state` is `6` (END) or `7` (ERROR), clears
   `current_media` and sets playback state to IDLE.
 
 **Pull (polling fallback):** `OVOSPlayer.needs_poll` returns `True`. MA calls `poll()` every
@@ -357,7 +357,7 @@ Symptom: MA shows the track as "playing" but the OVOS device is silent.
 Cause: OCP is not installed or not active in OVOS.
 
 Fix:
-- On the OVOS host: `pip show ovos-skill-ocp` — if not found, install it.
+- On the OVOS host: `pip show ovos-skill-ocp`: if not found, install it.
 - Check OVOS logs: `journalctl -u ovos-core -f` and look for OCP errors.
 - Watch the bus (`ovos-bus-client monitor`) and confirm `ovos.common_play.play` arrives and
   OCP responds with a `player.state` event.
@@ -372,8 +372,7 @@ Cause: OCP state events are not reaching MA.
 
 Fix:
 - Run `ovos-bus-client monitor` on the OVOS host and trigger playback. Look for
-  `ovos.common_play.player.state` events. If they don't appear, OCP is not emitting them —
-  check OCP version and configuration.
+  `ovos.common_play.player.state` events. If they don't appear, OCP is not emitting them: check OCP version and configuration.
 - If events appear on the OVOS bus but MA still shows IDLE, the polling fallback is also
   failing. Check network latency and that `ovos.common_play.status` messages receive a response
   within 2 seconds.
@@ -418,7 +417,7 @@ Fix: Check the OVOS OCP backend documentation. Not all backends support arbitrar
 
 Symptom: MA refuses to add a second instance of this provider.
 
-Cause: `manifest.json` sets `multi_instance: false`. This is intentional — one OVOS instance
+Cause: `manifest.json` sets `multi_instance: false`. This is intentional: one OVOS instance
 per MA server. If you need to control multiple OVOS devices, use `hivemind-ma-player` instead,
 which supports multiple simultaneous instances.
 
@@ -471,7 +470,7 @@ guidance on forking and extending the plugin.
 
 ## Related
 
-- [hivemind-ma-player](https://github.com/TigreGotico/hivemind-ma-player) — same protocol over
+- [hivemind-ma-player](https://github.com/TigreGotico/hivemind-ma-player): same protocol over
   an encrypted HiveMind tunnel; use this when OVOS is on a remote device.
 
 ---

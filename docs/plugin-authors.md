@@ -1,4 +1,4 @@
-# Plugin Authors Guide — ovos-ma-player
+# Plugin Authors Guide: ovos-ma-player
 
 This document is for developers who want to fork, extend, or use this plugin as a template for
 a new Music Assistant PlayerProvider. It assumes you have read
@@ -24,12 +24,12 @@ imports that module and calls `setup()` and `get_config_entries()` on it.
 
 When MA loads a provider it calls two module-level functions:
 
-1. `get_config_entries(mass, instance_id, action, values)` — returns a tuple of `ConfigEntry`
+1. `get_config_entries(mass, instance_id, action, values)`: returns a tuple of `ConfigEntry`
    objects. MA renders these as a configuration form in the UI. Each `ConfigEntry` has a `key`,
    a `type` (`ConfigEntryType.STRING`, `.INTEGER`, `.BOOLEAN`, `.SECURE_STRING`, etc.), a
    `label`, a `default_value`, and a `required` flag.
 
-2. `setup(mass, manifest, config)` — constructs and returns the provider instance. It receives
+2. `setup(mass, manifest, config)`: constructs and returns the provider instance. It receives
    the `MusicAssistant` instance, the parsed `manifest.json`, and the user-submitted config.
 
 MA also reads `manifest.json` co-packaged with the Python module. Important manifest fields:
@@ -154,15 +154,15 @@ Only implement the ones your device supports, and declare the corresponding `Pla
 | `play_announcement(announcement, volume_level)` | `PLAY_ANNOUNCEMENT` | Play a TTS/alert audio clip |
 | `pause()` | `PAUSE` | Pause playback |
 | `play()` | `PAUSE` | Resume from pause (same flag covers both) |
-| `stop()` | — | Stop playback and clear queue |
+| `stop()` | none | Stop playback and clear queue |
 | `seek(position: int)` | `SEEK` | Seek to position in seconds |
 | `volume_set(volume_level: int)` | `VOLUME_SET` | Set volume (0-100) |
 | `volume_mute(muted: bool)` | `VOLUME_MUTE` | Mute or unmute |
 | `power(powered: bool)` | `POWER` | Power on or off |
 | `next_track()` | `NEXT_PREVIOUS_TRACK` | Skip to next track |
 | `previous_track()` | `NEXT_PREVIOUS_TRACK` | Go to previous track |
-| `poll()` | — | Called periodically if `needs_poll` returns `True` |
-| `on_unload()` | — | Called when the player is being removed |
+| `poll()` | none | Called periodically if `needs_poll` returns `True` |
+| `on_unload()` | none | Called when the player is being removed |
 
 ### needs_poll and poll_interval
 
@@ -263,7 +263,7 @@ Subscribe in `handle_async_init` after the bus is connected:
 self.bus.on("ovos.some.new.event", self._on_some_event)
 ```
 
-Handler pattern (runs in the bus receive thread — no `await`):
+Handler pattern (runs in the bus receive thread: no `await`):
 
 ```python
 def _on_some_event(self, message) -> None:
@@ -497,11 +497,11 @@ by `pip` from your `pyproject.toml`.
 MA loads each provider module lazily (when the user adds a provider instance or MA restores
 saved state). It calls:
 
-1. `module.get_config_entries(mass)` — to render the config form (or restore saved config).
-2. `module.setup(mass, manifest, config)` — to instantiate the provider.
-3. `provider.handle_async_init()` — the async init hook, called by MA after the event loop is
+1. `module.get_config_entries(mass)`: to render the config form (or restore saved config).
+2. `module.setup(mass, manifest, config)`: to instantiate the provider.
+3. `provider.handle_async_init()`: the async init hook, called by MA after the event loop is
    confirmed running.
-4. `provider.discover_players()` — to register player instances.
+4. `provider.discover_players()`: to register player instances.
 
 On teardown, MA calls:
 
@@ -511,3 +511,6 @@ On teardown, MA calls:
 `manifest.json` is located by MA using `importlib.resources` or by looking for the file
 alongside the package module. It must be included in the wheel (hence the `package-data` entry
 in `pyproject.toml`).
+
+---
+[← Architecture](architecture.md) · [Home](../README.md) · [OCP Protocol Reference →](ocp-protocol.md)

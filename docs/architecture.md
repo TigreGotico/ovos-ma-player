@@ -1,4 +1,4 @@
-# Architecture — ovos-ma-player
+# Architecture: ovos-ma-player
 
 ## Class diagram
 
@@ -24,8 +24,8 @@ Module-level helpers (shared between provider and player):
 `OVOSPlayerProvider` holds the single `MessageBusClient` instance and exposes it (and the
 `Message` class) as instance attributes. `OVOSPlayer` accesses the bus only through
 `self.provider.bus` and `self.provider.Message`. This means `ovos-bus-client` can fail to
-import without causing an `ImportError` at module load — the failure is caught in
-`handle_async_init` and surfaced as `ProviderUnavailableError`.
+import without causing an `ImportError` at module load. `handle_async_init` catches the failure
+and raises it as `ProviderUnavailableError`.
 
 The message construction, payload validation, and state parsing are all in module-level helper
 functions rather than class methods. This makes them independently testable and keeps the player
@@ -37,24 +37,24 @@ class focused on state management.
 
 MA has three categories of provider:
 
-- **Music providers** — supply library content (albums, tracks, artists). Examples: Spotify,
+- **Music providers**: supply library content (albums, tracks, artists). Examples: Spotify,
   YouTube Music, local files.
-- **Player providers** — represent playback devices and translate MA playback commands to
+- **Player providers**: represent playback devices and translate MA playback commands to
   device-specific protocols. This package is a player provider.
-- **Metadata providers** — enrich content with extra information (lyrics, artist bios).
+- **Metadata providers**: enrich content with extra information (lyrics, artist bios).
 
 A player provider must implement:
 
-- `handle_async_init()` — called once after the asyncio loop is running; set up connections here.
-- `discover_players()` — register `Player` instances with `mass.players.register()`.
-- `unload()` — clean up connections on shutdown.
+- `handle_async_init()`: called once after the asyncio loop is running; set up connections here.
+- `discover_players()`: register `Player` instances with `mass.players.register()`.
+- `unload()`: clean up connections on shutdown.
 
 The module must also export:
 
-- `setup(mass, manifest, config) -> ProviderInstanceType` — construct and return the provider.
-- `get_config_entries(mass, instance_id, action, values) -> tuple[ConfigEntry, ...]` — describe
+- `setup(mass, manifest, config) -> ProviderInstanceType`: construct and return the provider.
+- `get_config_entries(mass, instance_id, action, values) -> tuple[ConfigEntry, ...]`: describe
   the config form shown in the MA UI.
-- `SUPPORTED_FEATURES: set[ProviderFeature]` — provider-level capability flags (empty for player
+- `SUPPORTED_FEATURES: set[ProviderFeature]`: provider-level capability flags (empty for player
   providers; see below).
 
 ---
@@ -209,7 +209,7 @@ which uses `OvosCommonPlayPlayData` from `ovos_pydantic_models.skills.ocp`:
 ```
 
 `media` and each element of `playlist` are `MediaEntry` dicts (see MediaEntry section below).
-`disambiguation` is always an empty list in this plugin — OCP uses it for displaying alternative
+`disambiguation` is always an empty list in this plugin: OCP uses it for displaying alternative
 results when a user asks to play something by voice.
 
 ### Messages received by MA (OVOS to MA)
@@ -258,7 +258,7 @@ granular than what MA needs.
 
 ## MediaEntry fields
 
-`_make_ocp_media_entry(url, media)` — `ovos_ma_player/__init__.py:82`
+`_make_ocp_media_entry(url, media)`: `ovos_ma_player/__init__.py:82`
 
 This module-level function builds an `ovos_pydantic_models.skills.ocp.MediaEntry` and returns
 its `model_dump()` dict. It is called via `asyncio.to_thread` because the pydantic
@@ -305,3 +305,6 @@ capabilities:
 | `VOLUME_MUTE` | Mute button | `volume_mute(muted)` |
 | `SEEK` | Seek bar | `seek(position)` |
 | `PLAY_ANNOUNCEMENT` | MA TTS system | `play_announcement(media, volume)` |
+
+---
+[Home](../README.md) · [Plugin Authors Guide →](plugin-authors.md)
