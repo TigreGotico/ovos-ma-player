@@ -5,8 +5,8 @@ Music Assistant PlayerProvider that drives a local OVOS / OCP instance via the O
 ## Overview
 
 OVOS (OpenVoiceOS) ships with OCP (OpenVoiceOS Common Play), an audio pipeline that handles
-media playback through its own skill/plugin system. This package bridges Music Assistant — the
-media server — with that pipeline. MA resolves audio stream URLs; this plugin translates MA
+media playback through its own skill/plugin system. This package bridges Music Assistant, the
+media server, with that pipeline. MA resolves audio stream URLs. This plugin translates MA
 playback commands into OCP bus messages and translates OCP state events back into MA player
 state.
 
@@ -17,7 +17,7 @@ port 8181 exposed. If you need authentication or want to control a remote OVOS d
 
 ## Relationship to hivemind-ma-player
 
-Both providers implement the same OCP protocol — the same set of bus messages, the same state
+Both providers implement the same OCP protocol: the same set of bus messages, the same state
 machine, the same `MediaEntry` serialization. The difference is entirely in the transport layer:
 
 | | ovos-ma-player | hivemind-ma-player |
@@ -36,13 +36,13 @@ differs.
 
 | Class | Purpose | Source |
 |---|---|---|
-| `OVOSPlayerProvider` | MA `PlayerProvider` — manages the bus connection, registers players, and handles state events | `ovos_ma_player/__init__.py:301` |
-| `OVOSPlayer` | MA `Player` — translates MA commands to OCP bus messages; implements polling | `ovos_ma_player/__init__.py:178` |
+| `OVOSPlayerProvider` | MA `PlayerProvider`: manages the bus connection, registers players, and handles state events | `ovos_ma_player/__init__.py:301` |
+| `OVOSPlayer` | MA `Player`: translates MA commands to OCP bus messages; implements polling | `ovos_ma_player/__init__.py:178` |
 
 ## Contents
 
 - [Installation, Quick Start, Configuration & Troubleshooting](../README.md)
 - [Architecture, Threading Model & OCP Message Reference](architecture.md)
-- [Plugin Authors Guide — extending and testing](plugin-authors.md)
+- [Plugin Authors Guide: extending and testing](plugin-authors.md)
 - [OCP Protocol Reference](ocp-protocol.md)
 - [Deployment Guide](deployment.md)
