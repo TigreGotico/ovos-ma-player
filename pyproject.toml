@@ -7,7 +7,12 @@ name = "ovos-ma-player"
 version = "0.1.0"
 description = "OpenVoiceOS OCP player provider for Music Assistant"
 requires-python = ">=3.11"
-dependencies = ["music-assistant-plugin-manager", "ovos-bus-client", "ovos-pydantic-models"]
+dependencies = [
+    "music-assistant-plugin-manager",
+    "ovos-bus-client>=2.9.1a1",
+    "ovos-utils>=0.8.5",
+    "ovos-pydantic-models>=0.3.0a1",
+]
 
 [project.entry-points."music_assistant.provider"]
 ovos_player = "ovos_ma_player"
