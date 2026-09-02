@@ -5,7 +5,7 @@
   "description": "Drive OVOS / OCP playback from Music Assistant via the local messagebus.",
   "codeowners": ["@TigreGotico"],
   "stage": "beta",
-  "requirements": ["ovos-bus-client"],
+  "requirements": ["ovos-bus-client", "ovos-pydantic-models"],
   "documentation": "https://github.com/TigreGotico/ovos-ma-player",
   "multi_instance": false
 }
