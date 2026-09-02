@@ -15,9 +15,7 @@ import logging
 import threading
 from typing import TYPE_CHECKING
 
-from music_assistant_models.config_entries import ConfigEntry, ConfigValueType
 from music_assistant_models.enums import (
-    ConfigEntryType,
     PlaybackState,
     PlayerFeature,
     ProviderFeature,
@@ -50,40 +48,14 @@ async def setup(
     return OVOSPlayerProvider(mass, manifest, config, SUPPORTED_FEATURES)
 
 
-async def get_config_entries(
-    mass: MusicAssistant,
-    instance_id: str | None = None,
-    action: str | None = None,
-    values: dict[str, ConfigValueType] | None = None,
-) -> tuple[ConfigEntry, ...]:
-    return (
-        ConfigEntry(
-            key=CONF_HOST,
-            type=ConfigEntryType.STRING,
-            label="OVOS messagebus host",
-            required=False,
-            default_value=DEFAULT_HOST,
-            description="Hostname or IP of the OVOS messagebus. Must be reachable from MA.",
-        ),
-        ConfigEntry(
-            key=CONF_PORT,
-            type=ConfigEntryType.INTEGER,
-            label="OVOS messagebus port",
-            required=False,
-            default_value=DEFAULT_PORT,
-        ),
-    )
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 def _make_ocp_media_entry(url: str, media: PlayerMedia) -> dict:
     """Serialize a MA PlayerMedia to an OCP MediaEntry dict."""
-    from ovos_pydantic_models.skills.ocp import (  # noqa: PLC0415
-        MediaEntry, MediaType, PlaybackType,
-    )
+    from ovos_pydantic_models.skills.ocp import MediaEntry  # noqa: PLC0415
+    from ovos_utils.ocp import MediaType, PlaybackType  # noqa: PLC0415
     duration_s = getattr(media, "duration", None) or 0
     entry = MediaEntry(
         uri=url,
@@ -92,11 +64,15 @@ def _make_ocp_media_entry(url: str, media: PlayerMedia) -> dict:
         length=int(duration_s * 1000),  # MA gives seconds; OCP expects ms
         match_confidence=1.0,
         skill_id="music_assistant",
-        media_type=MediaType.MUSIC,
-        playback=PlaybackType.AUDIO,
         image=getattr(media, "image_url", None) or "",
     )
-    return entry.model_dump()
+    # the OCP wire vocabulary for these two fields is the int enums of
+    # ovos_utils.ocp; the same-named str enums in ovos_pydantic_models are a
+    # different vocabulary and OCP's roster does not recognise them.
+    payload = entry.model_dump()
+    payload["media_type"] = int(MediaType.MUSIC)
+    payload["playback"] = int(PlaybackType.AUDIO)
+    return payload
 
 
 def _make_play_payload(entry_dict: dict) -> dict:
@@ -110,20 +86,31 @@ def _make_play_payload(entry_dict: dict) -> dict:
 
 
 def _parse_player_state(raw: dict) -> PlaybackState | None:
-    """Validate ovos.common_play.player.state data; return MA PlaybackState or None."""
-    from ovos_pydantic_models.skills.ocp import (  # noqa: PLC0415
-        OvosCommonPlayPlayerStateData, PlayerState,
-    )
-    try:
-        data = OvosCommonPlayPlayerStateData(**raw)
-    except Exception as exc:  # noqa: BLE001
-        _LOGGER.warning("Unexpected ovos.common_play.player.state payload: %s", exc)
+    """Read ovos.common_play.player.state data; return MA PlaybackState or None.
+
+    The payload is `{"state": <int PlayerState>}` — the int vocabulary of
+    `ovos_utils.ocp`, not the same-named str enum in ovos_pydantic_models,
+    so this reads the field directly rather than through a model.
+    """
+    state = raw.get("state")
+    if state is None:
+        _LOGGER.warning("ovos.common_play.player.state carried no state: %s", raw)
         return None
-    if data.state == PlayerState.PLAYING:
+    return _playback_state(state)
+
+
+def _playback_state(state) -> PlaybackState:
+    """Map an OCP PlayerState (int wire value or str name) to MA's PlaybackState."""
+    from ovos_utils.ocp import PlayerState  # noqa: PLC0415
+    try:
+        state = PlayerState(int(state))
+    except (TypeError, ValueError):
+        state = str(state).lower()
+    if state in (PlayerState.PLAYING, "playing"):
         return PlaybackState.PLAYING
-    if data.state == PlayerState.PAUSED:
+    if state in (PlayerState.PAUSED, "paused"):
         return PlaybackState.PAUSED
-    return PlaybackState.IDLE  # STOPPED / LOADING / BUFFERING → IDLE
+    return PlaybackState.IDLE  # STOPPED / LOADING / BUFFERING
 
 
 def _parse_media_state_end(raw: dict) -> bool:
@@ -139,36 +126,22 @@ def _parse_media_state_end(raw: dict) -> bool:
     return data.state in (OcpMediaState.END_OF_MEDIA, OcpMediaState.INVALID_MEDIA)
 
 
-def _parse_status_response(raw: dict) -> tuple[PlaybackState | None, int | None]:
-    """Validate ovos.common_play.status.response; return (playback_state, elapsed_ms)."""
-    from ovos_pydantic_models.skills.ocp import (  # noqa: PLC0415
-        OvosCommonPlayStatusResponseData, PlayerState,
-    )
+def _parse_status_response(raw: dict) -> PlaybackState | None:
+    """Validate ovos.common_play.status.response; return the MA playback state.
+
+    The status snapshot carries no playback position — elapsed time is read
+    separately from `ovos.common_play.get_track_position`.
+    """
+    from ovos_pydantic_models.skills.ocp import OvosCommonPlayStatusResponseData  # noqa: PLC0415
     try:
         data = OvosCommonPlayStatusResponseData(**raw)
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("Unexpected ovos.common_play.status.response payload: %s", exc)
-        return None, None
-
-    pb_state: PlaybackState | None = None
-    if data.state == PlayerState.PLAYING:
-        pb_state = PlaybackState.PLAYING
-    elif data.state == PlayerState.PAUSED:
-        pb_state = PlaybackState.PAUSED
-    elif data.state is not None:
-        pb_state = PlaybackState.IDLE
-
-    elapsed_ms: int | None = None
-    if isinstance(data.media, dict):
-        pos = data.media.get("position")
-        if pos is not None:
-            elapsed_ms = int(pos)  # already ms; convert to s at call site
-    elif data.media is not None:
-        pos = getattr(data.media, "position", None)
-        if pos is not None:
-            elapsed_ms = int(pos)
-
-    return pb_state, elapsed_ms
+        return None
+    if data.player_state is None:
+        _LOGGER.warning("ovos.common_play.status.response carried no player_state")
+        return None
+    return _playback_state(data.player_state)
 
 
 # ---------------------------------------------------------------------------
@@ -283,11 +256,20 @@ class OVOSPlayer(Player):
 
         resp = await asyncio.to_thread(_ask)
         if resp:
-            pb_state, elapsed_ms = _parse_status_response(resp.data)
+            pb_state = _parse_status_response(resp.data)
             if pb_state is not None:
                 self._attr_playback_state = pb_state
-            if elapsed_ms is not None:
-                self._attr_elapsed_time = elapsed_ms // 1000  # ms → s
+
+        def _ask_position():
+            return self.provider.bus.wait_for_response(
+                self.provider.Message("ovos.common_play.get_track_position"),
+                reply_type="ovos.common_play.get_track_position.response",
+                timeout=2.0,
+            )
+
+        pos = await asyncio.to_thread(_ask_position)
+        if pos and pos.data.get("position") is not None:
+            self._attr_elapsed_time = int(pos.data["position"]) // 1000  # ms → s
         self.update_state()
 
     async def on_unload(self) -> None:
@@ -312,8 +294,8 @@ class OVOSPlayerProvider(PlayerProvider):
             from music_assistant_models.errors import ProviderUnavailableError
             raise ProviderUnavailableError("ovos-bus-client not installed") from err
 
-        host = self.config.get_value(CONF_HOST) or DEFAULT_HOST
-        port = int(self.config.get_value(CONF_PORT) or DEFAULT_PORT)
+        host = self.get_setup_value(CONF_HOST) or DEFAULT_HOST
+        port = int(self.get_setup_value(CONF_PORT) or DEFAULT_PORT)
 
         self.bus = self._MessageBusClient(host=host, port=port, route="/core", ssl=False)
         t = threading.Thread(target=self.bus.run_forever, daemon=True)
@@ -337,7 +319,7 @@ class OVOSPlayerProvider(PlayerProvider):
             player._attr_playback_state = pb_state
             if pb_state == PlaybackState.IDLE:
                 player._attr_current_media = None
-            player.update_state()
+            self._publish(player)
 
     def _on_media_state(self, message) -> None:
         if not _parse_media_state_end(message.data):
@@ -345,13 +327,21 @@ class OVOSPlayerProvider(PlayerProvider):
         for player in self.players:
             player._attr_playback_state = PlaybackState.IDLE
             player._attr_current_media = None
-            player.update_state()
+            self._publish(player)
+
+    def _publish(self, player) -> None:
+        """Push a player update from a bus-client thread.
+
+        Bus callbacks run on the messagebus client's own thread; MA rejects
+        ``update_state`` from anywhere but its event loop.
+        """
+        self.mass.loop.call_soon_threadsafe(player.update_state)
 
     async def discover_players(self) -> None:
         player_id = f"{self.instance_id}:ovos"
         player = OVOSPlayer(self, player_id)
         await self.mass.players.register(player)
 
-    async def unload(self) -> None:
-        if hasattr(self, "bus"):
+    async def unload(self, is_removed: bool = False) -> None:
+        if getattr(self, "bus", None):
             self.bus.close()
