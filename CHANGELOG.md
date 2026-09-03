@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.1a2](https://github.com/TigreGotico/ovos-ma-player/tree/0.1.1a2) (2026-09-02)
+
+[Full Changelog](https://github.com/TigreGotico/ovos-ma-player/compare/0.1.1a1...0.1.1a2)
+
 ## [0.1.1a1](https://github.com/TigreGotico/ovos-ma-player/tree/0.1.1a1) (2026-09-02)
 
 [Full Changelog](https://github.com/TigreGotico/ovos-ma-player/compare/1486f1076eecfd4ce50b5e249df4a78dfcc15f50...0.1.1a1)
